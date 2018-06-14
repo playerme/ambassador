@@ -19,6 +19,7 @@ from .utils import RichStatus, SourcedDict
 from .mapping import Mapping
 
 from scout import Scout
+from kubewatch import kube_v1, get_ambassador_namespace, read_cert_secret, save_cert
 
 from .VERSION import Version
 
@@ -221,6 +222,7 @@ class Config (object):
 
         self.schema_dir_path = schema_dir_path
         self.template_dir_path = template_dir_path
+        self.v1 = kube_v1()
 
         self.logger = logging.getLogger("ambassador.config")
 
@@ -1262,6 +1264,26 @@ class Config (object):
     def update_config_ambassador(self, module, key, value):
         self.set_config_ambassador(module, key, value, merge=True)
 
+    @staticmethod
+    def generate_server_cert_dir(server_name):
+        return "/etc/certs/{}".format(server_name)
+
+    @staticmethod
+    def generate_client_cert_dir(server_name):
+        return "/etc/cacert/{}".format(server_name)
+
+    def handle_server_secret(self, server_name, secret_name, kube_namespace):
+        (server_cert, server_key, server_data) = read_cert_secret(self.v1, secret_name, kube_namespace)
+
+        if server_cert and server_key:
+            save_cert(server_cert, server_key, self.generate_server_cert_dir(server_name))
+
+    def handle_client_secret(self, server_name, secret_name, kube_namespace):
+        (client_cert, _, client_data) = read_cert_secret(self.v1, secret_name, kube_namespace)
+
+        if client_cert:
+            save_cert(client_cert, None, self.generate_client_cert_dir(server_name))
+
     def tls_config_helper(self, name, amod, tmod):
         tmp_config = SourcedDict(_from=amod)
         some_enabled = False
@@ -1286,6 +1308,15 @@ class Config (object):
                     # ...and merge in the server-side defaults.
                     tmp_config.update(self.default_tls_config['server'])
                     tmp_config.update(tmod['server'])
+
+                    # Check if secrets are supplied for TLS termination and/or TLS auth
+                    secret = context.get('secret', False)
+                    if secret:
+                        self.logger.debug("config.server.secret is {}".format(secret))
+                        # TODO: get the server name or some unique identifier using which the cert data can be stored
+                        # to disk
+                        self.handle_server_secret(server_name, secret, get_ambassador_namespace())
+
                 elif context_name == 'client':
                     # Client-side TLS is enabled. 
                     self.logger.debug("TLS client certs enabled!")
@@ -1294,6 +1325,13 @@ class Config (object):
                     # Merge in the client-side defaults.
                     tmp_config.update(self.default_tls_config['client'])
                     tmp_config.update(tmod['client'])
+
+                    secret = context.get('secret', False)
+                    if secret:
+                        self.logger.debug("config.client.secret is {}".format(secret))
+                        # TODO: get the server name or some unique identifier using which the cert data can be stored
+                        # to disk
+                        self.handle_client_secret(server_name, secret, get_ambassador_namespace())
                 else:
                     # This is a wholly new thing.
                     self.tls_contexts[context_name] = SourcedDict(

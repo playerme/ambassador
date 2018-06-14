@@ -322,48 +322,6 @@ def sync(restarter):
                     # logger.info("ambassador-config: found %s" % key)
                     restarter.update(key, config_yaml)
 
-        # If we don't already see a TLS server key in its usual spot...
-        if not check_cert_file("/etc/certs/tls.crt"):
-            # ...then try pulling keys directly from the configmaps.
-            (server_cert, server_key, server_data) = read_cert_secret(v1, "ambassador-certs", 
-                                                                      restarter.namespace)
-            (client_cert, _, client_data) = read_cert_secret(v1, "ambassador-cacert", 
-                                                             restarter.namespace)
-
-            if server_cert and server_key:
-                ambassador_id = os.getenv("AMBASSADOR_ID", "default")
-
-                tls_mod = {
-                    "apiVersion": "ambassador/v0",
-                    "kind": "Module",
-                    "name": "tls-from-ambassador-certs",
-                    "ambassador_id": ambassador_id,
-                    "config": {
-                        "server": {
-                            "enabled": True,
-                            "cert_chain_file": "/etc/certs/tls.crt",
-                            "private_key_file": "/etc/certs/tls.key"
-                        }
-                    }
-                }
-
-                save_cert(server_cert, server_key, "/etc/certs")
-
-                if client_cert:
-                    tls_mod['config']['client'] = {
-                        "enabled": True,
-                        "cacert_chain_file": "/etc/cacert/tls.crt"
-                    }
-
-                    if client_data.get('cert_required', None):
-                        tls_mod['config']['client']["cert_required"] = True
-
-                    save_cert(client_cert, None, "/etc/cacert")
-
-                tls_yaml = yaml.safe_dump(tls_mod)
-                logger.debug("generated TLS config %s" % tls_yaml)
-                restarter.update("tls.yaml", tls_yaml)
-
         # Next, check for annotations and such.
         svc_list = None
 
@@ -404,6 +362,10 @@ def watch_loop(restarter):
         logger.info("No K8s, idling")
         while True:
             time.sleep(60)
+
+
+def get_ambassador_namespace():
+    return os.environ.get('AMBASSADOR_NAMESPACE', 'default')
 
 @click.command()
 @click.argument("mode", type=click.Choice(["sync", "watch"]))
@@ -475,9 +437,7 @@ def main(mode, ambassador_config_dir, envoy_config_file, delay, pid):
 
     """
 
-    namespace = os.environ.get('AMBASSADOR_NAMESPACE', 'default')
-
-    restarter = Restarter(ambassador_config_dir, namespace, envoy_config_file, delay, pid)
+    restarter = Restarter(ambassador_config_dir, get_ambassador_namespace(), envoy_config_file, delay, pid)
 
     if mode == "sync":
         sync(restarter)
