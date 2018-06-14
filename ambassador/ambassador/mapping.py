@@ -124,6 +124,25 @@ class Mapping (object):
         else:
             return self.attrs.get(key)
 
+    @staticmethod
+    def add_to_dict_if_key_exists(key1, dict1, key2, dict2):
+        if dict1.get(key1) is not None:
+            if type(dict1.get(key1)) is list:
+                dict2[key2] = ", ".join(dict1.get(key1))
+            else:
+                dict2[key2] = dict1.get(key1)
+
+    def generate_route_cors(self, cors, route):
+        route['cors'] = {
+            'enabled': True,
+            'allow_origin': cors.get('origins'),
+        }
+        self.add_to_dict_if_key_exists('max_age', cors, 'max_age', route['cors'])
+        self.add_to_dict_if_key_exists('credentials', cors, 'allow_credentials', route['cors'])
+        self.add_to_dict_if_key_exists('methods', cors, 'allow_methods', route['cors'])
+        self.add_to_dict_if_key_exists('headers', cors, 'allow_headers', route['cors'])
+        self.add_to_dict_if_key_exists('exposed_headers', cors, 'expose_headers', route['cors'])
+
     def new_route(self, svc, cluster_name):
         route = SourcedDict(
             _source=self['_source'],
@@ -165,15 +184,7 @@ class Mapping (object):
 
         cors = self.get('cors')
         if cors:
-            route['cors'] = {key: value for key, value in {
-                "allow_origin": cors['origins'].split(',') if cors['origins'] else None,
-                "allow_methods": cors.get('methods'),
-                "allow_headers": cors.get('headers'),
-                "expose_headers": cors.get('exposed_headers'),
-                "allow_credentials": cors.get('credentials'),
-                "max_age": cors.get('max_age'),
-                "enabled": True
-            }.items() if value}
+            self.generate_route_cors(cors, route)
 
         rate_limits = self.get('rate_limits')
         if rate_limits != None:

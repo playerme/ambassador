@@ -502,7 +502,7 @@
             "kind": "Mapping",
             "name": "cors_creds_mapping",
             "version": "ambassador/v0",
-            "yaml": "apiVersion: ambassador/v0\ncors:\n  credentials: true\n  exposed_headers: X-Custom-Header\n  headers: Content-Type\n  max_age: '86400'\n  methods: POST, GET, OPTIONS\n  origins: http://foo.example,http://bar.example\nkind: Mapping\nname: cors_creds_mapping\nprefix: /cors-creds/\nservice: cors:8080\n"
+            "yaml": "apiVersion: ambassador/v0\ncors:\n  credentials: true\n  exposed_headers:\n  - X-Custom-Header\n  headers:\n  - Content-Type\n  max_age: '86400'\n  methods:\n  - POST\n  - GET\n  - OPTIONS\n  origins:\n  - http://foo.example\n  - http://bar.example\nkind: Mapping\nname: cors_creds_mapping\nprefix: /cors-creds/\nservice: cors:8080\n"
         },
         "mapping-cors.yaml.2": {
             "_source": "mapping-cors.yaml",
@@ -511,7 +511,7 @@
             "kind": "Mapping",
             "name": "cors_all_mapping",
             "version": "ambassador/v0",
-            "yaml": "apiVersion: ambassador/v0\ncors:\n  origins: '*'\nkind: Mapping\nname: cors_all_mapping\nprefix: /cors-all/\nservice: cors:8080\n"
+            "yaml": "apiVersion: ambassador/v0\ncors:\n  origins:\n  - '*'\nkind: Mapping\nname: cors_all_mapping\nprefix: /cors-all/\nservice: cors:8080\n"
         },
         "mapping-diag.yaml.1": {
             "_source": "mapping-diag.yaml",

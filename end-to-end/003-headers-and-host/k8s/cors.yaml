@@ -13,7 +13,8 @@ metadata:
       host: cors.datawire.io
       service: cors
       cors:
-        origins: "*"
+        origins:
+        - *
 spec:
   selector:
     app: demo2
